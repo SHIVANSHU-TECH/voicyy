@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Voice Agent',
+  title: 'Voicyy',
   description: 'AI voice calling campaign console',
 };
 

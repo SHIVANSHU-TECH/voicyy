@@ -2,7 +2,7 @@
 
 Modular MVP for authorized outbound AI voice campaigns: upload scripts and contact lists, approve campaign scripts, launch calls through provider interfaces, and record outcomes.
 
-**Status:** Phase 1 foundation complete. Live calling is disabled by default.
+**Status:** Phase 2 complete (dashboard, contacts ingestion, campaigns, call history, settings). Live calling is disabled by default. Data is in-memory until Phase 6 (Prisma).
 
 ## Stack
 
@@ -73,8 +73,8 @@ See [docs/COST-AND-PROVIDERS.md](./docs/COST-AND-PROVIDERS.md) for cost and vend
 
 ## Phases
 
-1. **Foundation** (this release) — monorepo, config, logging, health, queue stub, checks  
-2. Dashboard + contact ingestion  
+1. **Foundation** — monorepo, config, logging, health, queue stub, checks  
+2. **Dashboard + contact ingestion** (this release)  
 3. Campaign engine + state machine  
 4. Conversation engine  
 5. Real telephony/voice (after verification)  

@@ -17,13 +17,14 @@ Legend: `[x]` done · `[ ]` pending · `[!]` blocked (needs decision or credenti
 
 ## Phase 2 — Dashboard and contact ingestion
 
-- [ ] Dashboard with campaign/call stats
-- [ ] Contacts upload (PDF/CSV/XLSX), preview, validation, duplicates
-- [ ] Campaign creation + script approval UI
-- [ ] Call history + filters
-- [ ] Call detail (transcript/summary/outcome)
-- [ ] Settings (providers, limits, retention)
-- [ ] Phone validation + confirm-before-save
+- [x] Dashboard with campaign/call stats
+- [x] Contacts upload (PDF/CSV/XLSX), preview, validation, duplicates
+- [x] Campaign creation + script approval UI
+- [x] Call history + filters
+- [x] Call detail (transcript/summary/outcome)
+- [x] Settings (providers, limits, retention)
+- [x] Phone validation + confirm-before-save
+- [x] In-memory store for MVP (Prisma deferred to Phase 6)
 
 ## Phase 3 — Campaign engine
 

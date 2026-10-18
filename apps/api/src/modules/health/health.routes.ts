@@ -28,7 +28,7 @@ export function createHealthRouter(config: AppConfig, queue: QueueDriver): Route
     res.status(200).json({
       name: 'ai-voice-calling-agent',
       version: '0.1.0',
-      phase: 1,
+      phase: 2,
       config: publicConfigView(config),
     });
   });

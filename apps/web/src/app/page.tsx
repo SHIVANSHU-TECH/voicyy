@@ -1,89 +1,92 @@
-import { CALL_STATES } from '@voice/shared';
-import { getPublicApiUrl } from '@/lib/api';
+import Link from 'next/link';
+import { AppShell } from '@/components/AppShell';
+import { Badge, Panel } from '@/components/ui';
+import { getPublicApiUrl, voiceApi } from '@/lib/api';
 
-async function loadMeta() {
+export default async function DashboardPage() {
+  let stats = null;
+  let error: string | null = null;
   try {
-    const res = await fetch(`${getPublicApiUrl()}/api/v1/meta`, {
-      cache: 'no-store',
-      next: { revalidate: 0 },
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as {
-      phase: number;
-      version: string;
-      config: {
-        liveCallingAllowed: boolean;
-        queueDriver: string;
-        providers: Record<string, string>;
-      };
-    };
+    const res = await voiceApi.stats();
+    stats = res.stats;
   } catch {
-    return null;
+    error = `API not reachable at ${getPublicApiUrl()}. Run npm run dev:api.`;
   }
-}
-
-export default async function HomePage() {
-  const meta = await loadMeta();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-16">
-      <p className="mb-3 text-sm tracking-[0.2em] text-[var(--muted)] uppercase">Phase 1</p>
-      <h1 className="mb-4 text-4xl font-semibold tracking-tight sm:text-5xl">Voice Agent</h1>
-      <p className="mb-10 max-w-xl text-lg text-[var(--muted)]">
-        Foundation for authorized outbound AI calling campaigns. Dashboard, ingestion, and live
-        telephony arrive in later phases.
-      </p>
+    <AppShell
+      title="Dashboard"
+      subtitle="Campaign and call overview. Live dialing stays off until providers and consent controls are verified."
+    >
+      {error ? (
+        <Panel>
+          <p className="text-[var(--warn)]">{error}</p>
+        </Panel>
+      ) : stats ? (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Stat label="Contacts" value={stats.contacts} href="/contacts" />
+            <Stat label="Campaigns" value={stats.campaigns} href="/campaigns" />
+            <Stat label="Approved" value={stats.campaignsApproved} href="/campaigns" />
+            <Stat label="Calls" value={stats.callsTotal} href="/calls" />
+          </div>
 
-      <section className="rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)]/80 p-6 backdrop-blur">
-        <h2 className="mb-4 text-sm font-medium tracking-wide text-[var(--muted)] uppercase">
-          API status
-        </h2>
-        {meta ? (
-          <dl className="grid gap-3 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-[var(--muted)]">Reachable</dt>
-              <dd className="text-[var(--ok)]">
-                Yes · v{meta.version} · phase {meta.phase}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-[var(--muted)]">Queue</dt>
-              <dd>{meta.config.queueDriver}</dd>
-            </div>
-            <div>
-              <dt className="text-[var(--muted)]">Live calling</dt>
-              <dd className={meta.config.liveCallingAllowed ? 'text-[var(--warn)]' : ''}>
-                {meta.config.liveCallingAllowed ? 'Enabled' : 'Disabled (safe default)'}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-[var(--muted)]">Telephony</dt>
-              <dd>{meta.config.providers.telephony}</dd>
-            </div>
-          </dl>
-        ) : (
-          <p className="text-sm text-[var(--warn)]">
-            API not reachable at {getPublicApiUrl()}. Start it with{' '}
-            <code className="rounded bg-black/30 px-1.5 py-0.5">npm run dev:api</code>.
-          </p>
-        )}
-      </section>
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">
+            <Panel>
+              <h2 className="mb-3 text-sm tracking-wide text-[var(--muted)] uppercase">
+                Call status
+              </h2>
+              {Object.keys(stats.callsByStatus).length === 0 ? (
+                <p className="text-sm text-[var(--muted)]">
+                  No calls yet. Approve a campaign and queue stubs.
+                </p>
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {Object.entries(stats.callsByStatus).map(([status, count]) => (
+                    <li
+                      key={status}
+                      className="flex justify-between border-b border-[var(--line)] py-2"
+                    >
+                      <span>{status}</span>
+                      <span>{count}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
+            <Panel>
+              <h2 className="mb-3 text-sm tracking-wide text-[var(--muted)] uppercase">Safety</h2>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span>Live calling</span>
+                  <Badge tone={stats.liveCallingAllowed ? 'warn' : 'ok'}>
+                    {stats.liveCallingAllowed ? 'Allowed' : 'Disabled'}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Suppressed contacts</span>
+                  <span>{stats.suppressedContacts}</span>
+                </div>
+                <p className="text-[var(--muted)]">
+                  Uploaded scripts and documents cannot override opt-out, spend limits, or
+                  permissions.
+                </p>
+              </div>
+            </Panel>
+          </div>
+        </>
+      ) : null}
+    </AppShell>
+  );
+}
 
-      <section className="mt-8">
-        <h2 className="mb-3 text-sm font-medium tracking-wide text-[var(--muted)] uppercase">
-          Call states (shared)
-        </h2>
-        <ul className="flex flex-wrap gap-2">
-          {CALL_STATES.map((state) => (
-            <li
-              key={state}
-              className="rounded-full border border-[var(--line)] px-3 py-1 text-xs text-[var(--muted)]"
-            >
-              {state}
-            </li>
-          ))}
-        </ul>
-      </section>
-    </main>
+function Stat({ label, value, href }: { label: string; value: number; href: string }) {
+  return (
+    <Link href={href}>
+      <Panel className="transition hover:border-[var(--accent)]/40">
+        <p className="text-sm text-[var(--muted)]">{label}</p>
+        <p className="mt-2 text-3xl font-semibold">{value}</p>
+      </Panel>
+    </Link>
   );
 }
