@@ -1,0 +1,16 @@
+process.env.NODE_ENV = 'test';
+process.env.LOG_LEVEL = 'silent';
+process.env.API_HOST = '127.0.0.1';
+process.env.API_PORT = '4100';
+process.env.CORS_ORIGIN = 'http://localhost:3100';
+process.env.QUEUE_MODE = 'memory';
+process.env.LIVE_CALLING_ENABLED = 'false';
+process.env.MAX_CONCURRENT_CALLS = '2';
+process.env.DAILY_CALL_SPEND_LIMIT_USD = '0';
+process.env.TELEPHONY_PROVIDER = 'simulated';
+process.env.STT_PROVIDER = 'simulated';
+process.env.TTS_PROVIDER = 'simulated';
+process.env.CONVERSATION_PROVIDER = 'simulated';
+process.env.GROQ_MODEL = 'llama-3.1-8b-instant';
+process.env.TRANSCRIPT_RETENTION_DAYS = '30';
+process.env.AUDIT_RETENTION_DAYS = '90';

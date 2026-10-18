@@ -1,0 +1,40 @@
+{
+  "name": "ai-voice-calling-agent",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Modular AI voice calling MVP — campaigns, contacts, scripted outbound calls",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run build:shared && npm run dev:api",
+    "dev:api": "npm run build:shared && npm run dev --workspace=@voice/api",
+    "dev:web": "npm run build:shared && npm run dev --workspace=@voice/web",
+    "build": "npm run build --workspace=@voice/shared && npm run build --workspace=@voice/api && npm run build --workspace=@voice/web",
+    "build:shared": "npm run build --workspace=@voice/shared",
+    "build:api": "npm run build:shared && npm run build --workspace=@voice/api",
+    "build:web": "npm run build:shared && npm run build --workspace=@voice/web",
+    "start:api": "npm run start --workspace=@voice/api",
+    "lint": "npm run lint --workspaces --if-present",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "typecheck": "npm run build:shared && npm run typecheck --workspaces --if-present",
+    "test": "npm run build:shared && npm run test --workspaces --if-present",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.28.0",
+    "@types/node": "^22.15.29",
+    "eslint": "^9.28.0",
+    "eslint-config-prettier": "^10.1.5",
+    "globals": "^16.2.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.33.1"
+  }
+}
