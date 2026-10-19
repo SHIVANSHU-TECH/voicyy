@@ -36,15 +36,51 @@ export default function CampaignDetailPage() {
     }
   }
 
-  async function queueStubs() {
+  async function launch() {
     if (!campaign) return;
     setBusy(true);
     setError(null);
     try {
-      const res = await voiceApi.createCallStubs(campaign.id);
-      setMessage(`${res.calls.length} simulated call stub(s) queued. ${res.warning}`);
+      const res = await voiceApi.launchCampaign(campaign.id);
+      const skipNote =
+        res.skipped.length > 0
+          ? ` Skipped ${res.skipped.length}: ${res.skipped.map((s) => s.reason).join(', ')}.`
+          : '';
+      setMessage(
+        `Created ${res.created.length}, reused ${res.reused.length}, dispatched ${res.dispatched.length}.${skipNote} ${res.warning ?? ''}`,
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Queue failed');
+      setError(err instanceof Error ? err.message : 'Launch failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function pause() {
+    if (!campaign) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await voiceApi.pauseCampaign(campaign.id);
+      setCampaign(res.campaign);
+      setMessage('Campaign paused.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Pause failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resume() {
+    if (!campaign) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await voiceApi.resumeCampaign(campaign.id);
+      setCampaign(res.campaign);
+      setMessage(`Resumed. Dispatched ${res.dispatched.length} call(s).`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Resume failed');
     } finally {
       setBusy(false);
     }
@@ -53,7 +89,7 @@ export default function CampaignDetailPage() {
   return (
     <AppShell
       title={campaign?.name ?? 'Campaign'}
-      subtitle="Review script, approve, then queue non-dialing stubs."
+      subtitle="Approve script, then launch the Phase 3 engine (simulated dials only)."
     >
       {error ? <p className="mb-4 text-sm text-red-300">{error}</p> : null}
       {message ? <p className="mb-4 text-sm text-[var(--ok)]">{message}</p> : null}
@@ -70,6 +106,7 @@ export default function CampaignDetailPage() {
               </Badge>
               <Badge>{campaign.status}</Badge>
               <Badge>{campaign.language}</Badge>
+              {campaign.requireConsent !== false ? <Badge>consent required</Badge> : null}
             </div>
             <div>
               <h2 className="text-sm text-[var(--muted)] uppercase">Goal</h2>
@@ -88,6 +125,15 @@ export default function CampaignDetailPage() {
             <div>
               <h2 className="text-sm text-[var(--muted)] uppercase">Closing</h2>
               <p className="mt-1 whitespace-pre-wrap text-sm">{campaign.closingMessage || '—'}</p>
+            </div>
+            <div>
+              <h2 className="text-sm text-[var(--muted)] uppercase">Questions</h2>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                {(campaign.questions ?? []).length === 0 ? <li>—</li> : null}
+                {(campaign.questions ?? []).map((q) => (
+                  <li key={q}>{q}</li>
+                ))}
+              </ul>
             </div>
           </Panel>
           <Panel className="space-y-4">
@@ -109,23 +155,46 @@ export default function CampaignDetailPage() {
                 ))}
               </ul>
             </div>
-            <p className="text-sm text-[var(--muted)]">
-              {campaign.contactIds.length} contact(s) assigned
-            </p>
+            <div className="text-sm text-[var(--muted)]">
+              <p>{campaign.contactIds.length} contact(s) assigned</p>
+              <p className="mt-1">
+                Attempts {campaign.maxAttempts ?? 3} · backoff {campaign.retryBackoffMinutes ?? 30}
+                m · concurrency {campaign.maxConcurrentCalls ?? 'global'}
+              </p>
+              <p className="mt-1">
+                Schedule {campaign.schedule?.timezone ?? 'Asia/Kolkata'}{' '}
+                {campaign.schedule?.windowStartLocal || '00:00'}–
+                {campaign.schedule?.windowEndLocal || '24:00'}
+              </p>
+            </div>
             <div className="flex flex-wrap gap-2">
               <Button disabled={busy || campaign.scriptApproved} onClick={() => void approve()}>
                 Approve script
               </Button>
               <Button
                 variant="ghost"
-                disabled={busy || !campaign.scriptApproved}
-                onClick={() => void queueStubs()}
+                disabled={busy || !campaign.scriptApproved || campaign.status === 'paused'}
+                onClick={() => void launch()}
               >
-                Queue call stubs
+                Launch engine
               </Button>
+              {campaign.status === 'paused' ? (
+                <Button variant="ghost" disabled={busy} onClick={() => void resume()}>
+                  Resume
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  disabled={busy || campaign.status !== 'approved'}
+                  onClick={() => void pause()}
+                >
+                  Pause
+                </Button>
+              )}
             </div>
             <p className="text-xs text-[var(--muted)]">
-              Queueing creates simulated stubs only. No real phone numbers are dialed.
+              Launch creates idempotent simulated call jobs, respects consent/suppression/schedule,
+              and never dials real numbers in Phase 3.
             </p>
           </Panel>
         </div>

@@ -23,13 +23,23 @@ export function createCallsRouter(service: CallsService): Router {
     res.json({ call: service.get(String(req.params.id)) });
   });
 
-  router.post('/stubs', (req, res) => {
-    const calls = service.createStubsForCampaign(req.body);
+  router.post('/stubs', async (req, res) => {
+    const result = await service.createStubsForCampaign(req.body);
+    const calls = [...result.created, ...result.reused];
     res.status(201).json({
       calls,
-      mode: 'simulated',
+      created: result.created,
+      reused: result.reused,
+      skipped: result.skipped,
+      dispatched: result.dispatched,
+      mode: result.mode,
       warning: 'NOT_A_REAL_CALL — stubs only; live dialing is disabled until Phase 5 verification',
     });
+  });
+
+  router.post('/:id/transition', (req, res) => {
+    const call = service.transition(String(req.params.id), req.body);
+    res.json({ call });
   });
 
   return router;

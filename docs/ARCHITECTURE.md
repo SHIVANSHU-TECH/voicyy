@@ -17,7 +17,8 @@ ai-voice-calling-agent/
 │   │       ├── modules/
 │   │       │   ├── health/
 │   │       │   ├── contacts/     # Phase 2
-│   │       │   ├── campaigns/    # Phase 3
+│   │       │   ├── campaigns/    # Phase 3 (engine, eligibility, simulated worker)
+│   │       │   ├── calls/        # Call list + state machine transitions
 │   │       │   ├── conversation/ # Phase 4
 │   │       │   ├── calling/      # Phase 5
 │   │       │   └── reporting/    # Phase 6

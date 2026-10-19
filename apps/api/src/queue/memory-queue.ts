@@ -82,6 +82,25 @@ export class MemoryQueueDriver implements QueueDriver {
       await handler(job.payload);
     } catch (err) {
       this.logger.error({ err, queueName, jobId: job.id }, 'Memory queue job failed');
+    } finally {
+      if ((this.pending.get(queueName)?.length ?? 0) > 0) {
+        queueMicrotask(() => {
+          void this.processNext(queueName);
+        });
+      }
+    }
+  }
+
+  /** Test helper — drain pending jobs (bounded). */
+  async flush(maxTicks = 50): Promise<void> {
+    for (let i = 0; i < maxTicks; i += 1) {
+      const pending = [...this.pending.values()].reduce((n, list) => n + list.length, 0);
+      if (pending === 0) {
+        await new Promise((r) => setTimeout(r, 0));
+        const still = [...this.pending.values()].reduce((n, list) => n + list.length, 0);
+        if (still === 0) return;
+      }
+      await new Promise((r) => setTimeout(r, 5));
     }
   }
 }

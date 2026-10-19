@@ -1,7 +1,21 @@
-import type { Campaign } from '@voice/shared';
+import type { Campaign, CampaignSchedule } from '@voice/shared';
 import { z } from 'zod';
 import { ConflictError, NotFoundError, ValidationError } from '../../lib/errors.js';
 import type { MemoryStore } from '../../store/memory-store.js';
+
+const ScheduleInputSchema = z
+  .object({
+    timezone: z.string().default('Asia/Kolkata'),
+    windowStartLocal: z.string().default(''),
+    windowEndLocal: z.string().default(''),
+    daysOfWeek: z.array(z.number().int().min(0).max(6)).default([]),
+  })
+  .default({
+    timezone: 'Asia/Kolkata',
+    windowStartLocal: '',
+    windowEndLocal: '',
+    daysOfWeek: [],
+  });
 
 const CreateCampaignSchema = z.object({
   name: z.string().min(1),
@@ -15,9 +29,23 @@ const CreateCampaignSchema = z.object({
   approvedFacts: z.array(z.string()).default([]),
   forbiddenClaims: z.array(z.string()).default([]),
   contactIds: z.array(z.string()).default([]),
+  schedule: ScheduleInputSchema,
+  maxAttempts: z.number().int().positive().default(3),
+  retryBackoffMinutes: z.number().int().nonnegative().default(30),
+  maxConcurrentCalls: z.number().int().positive().nullable().default(null),
+  requireConsent: z.boolean().default(true),
 });
 
 const UpdateCampaignSchema = CreateCampaignSchema.partial();
+
+function normalizeSchedule(schedule: z.infer<typeof ScheduleInputSchema>): CampaignSchedule {
+  return {
+    timezone: schedule.timezone || 'Asia/Kolkata',
+    windowStartLocal: schedule.windowStartLocal ?? '',
+    windowEndLocal: schedule.windowEndLocal ?? '',
+    daysOfWeek: schedule.daysOfWeek ?? [],
+  };
+}
 
 export class CampaignsService {
   constructor(private readonly store: MemoryStore) {}
@@ -42,9 +70,11 @@ export class CampaignsService {
 
     this.assertContactsExist(parsed.data.contactIds);
     const now = new Date().toISOString();
+    const { schedule, ...rest } = parsed.data;
     const campaign: Campaign = {
       id: this.store.newId('camp'),
-      ...parsed.data,
+      ...rest,
+      schedule: normalizeSchedule(schedule),
       scriptApproved: false,
       scriptApprovedAt: null,
       status: 'draft',
@@ -72,9 +102,11 @@ export class CampaignsService {
     const scriptChanged =
       parsed.data.script !== undefined && parsed.data.script !== existing.script;
 
+    const { schedule, ...rest } = parsed.data;
     const updated: Campaign = {
       ...existing,
-      ...parsed.data,
+      ...rest,
+      schedule: schedule ? normalizeSchedule(schedule) : existing.schedule,
       scriptApproved: scriptChanged ? false : existing.scriptApproved,
       scriptApprovedAt: scriptChanged ? null : existing.scriptApprovedAt,
       status: scriptChanged && existing.status === 'approved' ? 'draft' : existing.status,
@@ -111,6 +143,37 @@ export class CampaignsService {
       scriptApprovedAt: now,
       status: 'approved',
       updatedAt: now,
+    };
+    this.store.campaigns.set(id, updated);
+    return updated;
+  }
+
+  pause(id: string): Campaign {
+    const campaign = this.get(id);
+    if (campaign.status === 'archived') {
+      throw new ConflictError('Archived campaigns cannot be paused');
+    }
+    if (!campaign.scriptApproved) {
+      throw new ConflictError('Only approved campaigns can be paused');
+    }
+    const updated: Campaign = {
+      ...campaign,
+      status: 'paused',
+      updatedAt: new Date().toISOString(),
+    };
+    this.store.campaigns.set(id, updated);
+    return updated;
+  }
+
+  resume(id: string): Campaign {
+    const campaign = this.get(id);
+    if (campaign.status !== 'paused') {
+      throw new ConflictError('Only paused campaigns can be resumed');
+    }
+    const updated: Campaign = {
+      ...campaign,
+      status: 'approved',
+      updatedAt: new Date().toISOString(),
     };
     this.store.campaigns.set(id, updated);
     return updated;

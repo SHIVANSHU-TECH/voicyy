@@ -18,8 +18,12 @@ export default function CampaignsPage() {
     script: '',
     openingMessage: '',
     closingMessage: '',
+    questions: '',
     approvedFacts: '',
     forbiddenClaims: '',
+    maxAttempts: '3',
+    retryBackoffMinutes: '30',
+    maxConcurrentCalls: '',
     contactIds: [] as string[],
   });
 
@@ -44,6 +48,10 @@ export default function CampaignsPage() {
         script: form.script,
         openingMessage: form.openingMessage,
         closingMessage: form.closingMessage,
+        questions: form.questions
+          .split('\n')
+          .map((s) => s.trim())
+          .filter(Boolean),
         approvedFacts: form.approvedFacts
           .split('\n')
           .map((s) => s.trim())
@@ -52,6 +60,12 @@ export default function CampaignsPage() {
           .split('\n')
           .map((s) => s.trim())
           .filter(Boolean),
+        maxAttempts: Number(form.maxAttempts) || 3,
+        retryBackoffMinutes: Number(form.retryBackoffMinutes) || 0,
+        maxConcurrentCalls: form.maxConcurrentCalls
+          ? Number(form.maxConcurrentCalls)
+          : null,
+        requireConsent: true,
         contactIds: form.contactIds,
       });
       setForm({
@@ -60,8 +74,12 @@ export default function CampaignsPage() {
         script: '',
         openingMessage: '',
         closingMessage: '',
+        questions: '',
         approvedFacts: '',
         forbiddenClaims: '',
+        maxAttempts: '3',
+        retryBackoffMinutes: '30',
+        maxConcurrentCalls: '',
         contactIds: [],
       });
       await refresh();
@@ -75,7 +93,7 @@ export default function CampaignsPage() {
   return (
     <AppShell
       title="Campaigns"
-      subtitle="Create a campaign, review the script, then approve before any call stubs can be queued."
+      subtitle="Create a campaign with script, Q&A, facts, and retry limits — then approve before launch."
     >
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel>
@@ -117,6 +135,13 @@ export default function CampaignsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, closingMessage: e.target.value }))}
               />
             </Field>
+            <Field label="Questions (one per line)">
+              <Textarea
+                rows={2}
+                value={form.questions}
+                onChange={(e) => setForm((f) => ({ ...f, questions: e.target.value }))}
+              />
+            </Field>
             <Field label="Approved facts (one per line)">
               <Textarea
                 rows={2}
@@ -131,6 +156,31 @@ export default function CampaignsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, forbiddenClaims: e.target.value }))}
               />
             </Field>
+            <div className="grid grid-cols-3 gap-2">
+              <Field label="Max attempts">
+                <Input
+                  value={form.maxAttempts}
+                  onChange={(e) => setForm((f) => ({ ...f, maxAttempts: e.target.value }))}
+                />
+              </Field>
+              <Field label="Retry backoff (min)">
+                <Input
+                  value={form.retryBackoffMinutes}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, retryBackoffMinutes: e.target.value }))
+                  }
+                />
+              </Field>
+              <Field label="Concurrency">
+                <Input
+                  placeholder="global"
+                  value={form.maxConcurrentCalls}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, maxConcurrentCalls: e.target.value }))
+                  }
+                />
+              </Field>
+            </div>
             <Field label="Assign contacts">
               <div className="max-h-36 space-y-1 overflow-auto rounded-xl border border-[var(--line)] p-2">
                 {contacts.length === 0 ? (
@@ -152,6 +202,8 @@ export default function CampaignsPage() {
                       />
                       <span>
                         {c.name} · {c.phoneE164}
+                        {c.consentCaptured ? '' : ' · no consent'}
+                        {c.suppressed ? ' · suppressed' : ''}
                       </span>
                     </label>
                   ))

@@ -53,7 +53,17 @@ export const voiceApi = {
     }),
   campaigns: () => api<{ campaigns: Campaign[] }>('/api/v1/campaigns'),
   campaign: (id: string) => api<{ campaign: Campaign }>(`/api/v1/campaigns/${id}`),
-  createCampaign: (body: Partial<Campaign> & { name: string; goal: string; script: string }) =>
+  createCampaign: (
+    body: Partial<Campaign> & {
+      name: string;
+      goal: string;
+      script: string;
+      maxAttempts?: number;
+      retryBackoffMinutes?: number;
+      maxConcurrentCalls?: number | null;
+      requireConsent?: boolean;
+    },
+  ) =>
     api<{ campaign: Campaign }>('/api/v1/campaigns', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -65,6 +75,21 @@ export const voiceApi = {
     }),
   approveScript: (id: string) =>
     api<{ campaign: Campaign }>(`/api/v1/campaigns/${id}/approve-script`, { method: 'POST' }),
+  pauseCampaign: (id: string) =>
+    api<{ campaign: Campaign }>(`/api/v1/campaigns/${id}/pause`, { method: 'POST' }),
+  resumeCampaign: (id: string) =>
+    api<{ campaign: Campaign; dispatched: CallRecord[] }>(`/api/v1/campaigns/${id}/resume`, {
+      method: 'POST',
+    }),
+  launchCampaign: (id: string) =>
+    api<{
+      created: CallRecord[];
+      reused: CallRecord[];
+      skipped: Array<{ contactId: string; reason: string }>;
+      dispatched: CallRecord[];
+      mode: string;
+      warning?: string;
+    }>(`/api/v1/campaigns/${id}/launch`, { method: 'POST' }),
   calls: (params?: { status?: string; q?: string }) => {
     const search = new URLSearchParams();
     if (params?.status) search.set('status', params.status);
@@ -74,7 +99,11 @@ export const voiceApi = {
   },
   call: (id: string) => api<{ call: CallDetail }>(`/api/v1/calls/${id}`),
   createCallStubs: (campaignId: string) =>
-    api<{ calls: CallRecord[]; warning: string }>('/api/v1/calls/stubs', {
+    api<{
+      calls: CallRecord[];
+      skipped?: Array<{ contactId: string; reason: string }>;
+      warning: string;
+    }>('/api/v1/calls/stubs', {
       method: 'POST',
       body: JSON.stringify({ campaignId }),
     }),
@@ -125,6 +154,16 @@ export interface Campaign {
   forbiddenClaims: string[];
   status: string;
   contactIds: string[];
+  schedule?: {
+    timezone: string;
+    windowStartLocal?: string;
+    windowEndLocal?: string;
+    daysOfWeek: number[];
+  };
+  maxAttempts?: number;
+  retryBackoffMinutes?: number;
+  maxConcurrentCalls?: number | null;
+  requireConsent?: boolean;
   createdAt: string;
   updatedAt: string;
 }

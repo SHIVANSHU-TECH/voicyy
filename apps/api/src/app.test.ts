@@ -41,7 +41,7 @@ describe('API foundation', () => {
     const app = createApp({ config, logger, queue });
     const res = await request(app).get('/api/v1/meta');
     expect(res.status).toBe(200);
-    expect(res.body.phase).toBe(2);
+    expect(res.body.phase).toBe(3);
     expect(res.body.config.providers.telephony).toBe('simulated');
     expect(JSON.stringify(res.body)).not.toMatch(/GROQ_API_KEY|AUTH_TOKEN|apiKey/i);
   });

@@ -1,15 +1,54 @@
-import { buildCallJobIdempotencyKey, type CallRecord, type CallState } from '@voice/shared';
+import { type CallRecord, type CallState } from '@voice/shared';
 import { z } from 'zod';
-import { ConflictError, NotFoundError, ValidationError } from '../../lib/errors.js';
+import { NotFoundError, ValidationError } from '../../lib/errors.js';
 import type { MemoryStore } from '../../store/memory-store.js';
+import type { CampaignEngine, LaunchResult } from '../campaigns/campaign-engine.js';
+import { CallStateMachine } from './call-state-machine.js';
 
 const CreateStubSchema = z.object({
   campaignId: z.string(),
   contactIds: z.array(z.string()).min(1).optional(),
 });
 
+const TransitionSchema = z.object({
+  to: z.enum([
+    'draft',
+    'approved',
+    'queued',
+    'initiating',
+    'ringing',
+    'connected',
+    'completed',
+    'failed',
+    'cancelled',
+    'opted_out',
+  ]),
+  outcome: z
+    .enum([
+      'unknown',
+      'completed',
+      'no_answer',
+      'busy',
+      'voicemail',
+      'failed',
+      'opted_out',
+      'escalated',
+      'cancelled',
+    ])
+    .optional(),
+  summary: z.string().optional(),
+  errorMessage: z.string().optional(),
+});
+
 export class CallsService {
-  constructor(private readonly store: MemoryStore) {}
+  private readonly machine: CallStateMachine;
+
+  constructor(
+    private readonly store: MemoryStore,
+    private readonly engine: CampaignEngine,
+  ) {
+    this.machine = engine.getStateMachine();
+  }
 
   list(filters: { status?: CallState; campaignId?: string; q?: string } = {}): CallRecord[] {
     let calls = [...this.store.calls.values()];
@@ -49,75 +88,32 @@ export class CallsService {
   }
 
   /**
-   * Creates non-dialing call stubs for an approved campaign.
-   * Never initiates live telephony — stubs are always mode=simulated.
+   * Creates / reuses idempotent call jobs and dispatches within concurrency.
+   * Alias kept as "stubs" for Phase 2 clients — always simulated unless live verified.
    */
-  createStubsForCampaign(input: unknown): CallRecord[] {
+  async createStubsForCampaign(input: unknown): Promise<LaunchResult> {
     const parsed = CreateStubSchema.safeParse(input);
     if (!parsed.success) {
       throw new ValidationError('Invalid call stub payload', parsed.error.flatten());
     }
+    return this.engine.launch(parsed.data.campaignId, {
+      contactIds: parsed.data.contactIds,
+    });
+  }
 
-    const campaign = this.store.campaigns.get(parsed.data.campaignId);
-    if (!campaign) throw new NotFoundError('Campaign not found');
-    if (!campaign.scriptApproved || campaign.status !== 'approved') {
-      throw new ConflictError('Campaign script must be approved before queueing calls');
+  async launchCampaign(input: unknown): Promise<LaunchResult> {
+    return this.createStubsForCampaign(input);
+  }
+
+  transition(callId: string, input: unknown): CallRecord {
+    const parsed = TransitionSchema.safeParse(input);
+    if (!parsed.success) {
+      throw new ValidationError('Invalid transition payload', parsed.error.flatten());
     }
-
-    const contactIds = parsed.data.contactIds?.length
-      ? parsed.data.contactIds
-      : campaign.contactIds;
-
-    if (contactIds.length === 0) {
-      throw new ValidationError('No contacts assigned to this campaign');
-    }
-
-    const created: CallRecord[] = [];
-    for (const contactId of contactIds) {
-      const contact = this.store.contacts.get(contactId);
-      if (!contact) throw new ValidationError(`Unknown contact: ${contactId}`);
-      if (contact.suppressed) {
-        throw new ConflictError(`Contact ${contactId} is suppressed / opted out`);
-      }
-
-      const attempt = 1;
-      const idempotencyKey = buildCallJobIdempotencyKey({
-        campaignId: campaign.id,
-        contactId,
-        attempt,
-      });
-
-      const existing = [...this.store.calls.values()].find(
-        (c) => c.idempotencyKey === idempotencyKey,
-      );
-      if (existing) {
-        created.push(existing);
-        continue;
-      }
-
-      const now = new Date().toISOString();
-      const record: CallRecord = {
-        id: this.store.newId('call'),
-        campaignId: campaign.id,
-        contactId,
-        status: 'queued',
-        outcome: 'unknown',
-        mode: 'simulated',
-        summary: undefined,
-        transcript: [],
-        structuredAnswers: {},
-        durationSeconds: 0,
-        attempt,
-        idempotencyKey,
-        createdAt: now,
-        updatedAt: now,
-        startedAt: null,
-        endedAt: null,
-      };
-      this.store.calls.set(record.id, record);
-      created.push(record);
-    }
-
-    return created;
+    return this.machine.transition(callId, parsed.data.to, {
+      outcome: parsed.data.outcome,
+      summary: parsed.data.summary,
+      errorMessage: parsed.data.errorMessage,
+    });
   }
 }

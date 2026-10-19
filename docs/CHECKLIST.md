@@ -28,11 +28,11 @@ Legend: `[x]` done · `[ ]` pending · `[!]` blocked (needs decision or credenti
 
 ## Phase 3 — Campaign engine
 
-- [ ] Campaign model (goal, script, Q&A, facts, forbidden claims)
-- [ ] Schedule, retry, concurrency
-- [ ] Consent / suppression gates
-- [ ] Deterministic call state machine
-- [ ] Idempotent call job creation
+- [x] Campaign model (goal, script, Q&A, facts, forbidden claims)
+- [x] Schedule, retry, concurrency
+- [x] Consent / suppression gates
+- [x] Deterministic call state machine
+- [x] Idempotent call job creation
 
 ## Phase 4 — Conversation engine
 
